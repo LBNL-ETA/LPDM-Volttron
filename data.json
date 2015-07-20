@@ -1,0 +1,1 @@
+{"/simulation/grid_controller": {"uuid": "d5920c07-ae9b-441a-b45b-720a57cd170c", "Readings": [[7500000, 1000.0]], "Properties": {"Timezone": "US/Pacific", "UnitOfMeasure": "W", "ReadingType": "double"}, "Metadata": {"SourceName": "TROPEC", "Timezone": "America/Los_Angeles", "UnitofMeasure": "W"}}}

@@ -1,0 +1,14 @@
+.*.sw?
+*.py[co]
+*.egg-info
+*~
+.svn
+
+/env/
+/Agents/*/{build,dist}/
+/Agents/*.egg
+/.project
+/.pydevproject
+/twistd.pid
+/.settings
+/build
