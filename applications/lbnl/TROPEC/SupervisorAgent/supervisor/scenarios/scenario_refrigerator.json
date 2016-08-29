@@ -1,0 +1,48 @@
+{
+    "run_time_days": "14",
+    "static_price": 0,
+    "devices": [
+        {
+            "capacity": "2000.0",
+            "days_to_refuel": "7",
+            "device_id": "",
+            "device_name": "Diesel Generator",
+            "device_type": "diesel_generator",
+            "fuel_base_cost": "5",
+            "fuel_level": "100.0",
+            "fuel_price_change_rate": "5",
+            "fuel_reserve": "20.0",
+            "fuel_tank_capacity": "100.0",
+            "gen_eff_100": "40",
+            "gen_eff_zero": "25",
+            "grid_controller_id": "grid_controller",
+            "kwh_per_gallon": "36.36",
+            "price_reassess_time": "3600",
+            "time_to_reassess_fuel": "21600",
+            "type": "Generator",
+            "uuid": 1
+        }, {
+            "capacity": "3000.0",
+            "device_id": "",
+            "device_name": "Grid Controller",
+            "device_type": "grid_controller",
+            "pv": "0",
+            "type": "Grid_Controller",
+            "uuid": 2
+        }, {
+            "current_set_point": "2.5",
+            "current_temperature": "2.5",
+            "device_id": "",
+            "device_name": "refrigerator",
+            "device_type": "refrigerator",
+            "grid_controller_id": "grid_controller",
+            "max_power_use": "3500.0",
+            "set_point_high": "5.0",
+            "set_point_low": "0.5",
+            "temperature_max_delta": "0.5",
+            "temperature_reassesment_time": "600.0",
+            "type": "End_Use_Device",
+            "uuid": 3
+        }
+    ]
+}
