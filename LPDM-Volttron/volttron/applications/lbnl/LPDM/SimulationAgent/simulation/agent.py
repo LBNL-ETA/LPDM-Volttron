@@ -7,12 +7,12 @@ from volttron.platform.agent import utils
 from volttron.platform.agent.utils import jsonapi
 from volttron.platform.vip.agent import Core
 from volttron.applications.lbnl.LPDM.BaseAgent.base.topics import *
-from volttron.applications.lbnl.LPDM.BaseAgent.base.agent import BaseAgent
+from volttron.applications.lbnl.LPDM.BaseAgent.base.agent import LPDM_BaseAgent
 #from tug_logger import TugLogger
 from simulation_logger import SimulationLogger
 
 
-class SimulationAgent(BaseAgent):
+class SimulationAgent(LPDM_BaseAgent):
     def __init__(self, **kwargs):
             super(SimulationAgent, self).__init__(**kwargs)
             self.time = 0

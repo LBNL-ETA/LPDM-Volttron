@@ -28,7 +28,7 @@ def log_entry_and_exit(f):
 
 start_time_offset = 0
 
-class DashboardLoggingAgent(PublishMixin, BaseAgent):
+class DashboardLoggingAgent(PublishMixin, LPDM_BaseAgent):
     def __init__(self, **kwargs):
         super(DashboardLoggingAgent, self).__init__(**kwargs)      
         self.scenario_id = "simulation"

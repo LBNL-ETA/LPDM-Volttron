@@ -9,7 +9,7 @@ from volttron.platform.agent import utils
 from volttron.platform.messaging import headers as headers_mod
 from topics import *
 
-class BaseAgent(Agent):
+class LPDM_BaseAgent(Agent):
     """
     Base class for LPDM agents.  Responsible for most of the general things need to run in volttron
     like handling messages or setting the interface for subclasses to handle messages where necessary
@@ -19,7 +19,7 @@ class BaseAgent(Agent):
         """
         :param device_id:  string, the id of the device in the system.  Should be unique within the run.
         """
-        super(BaseAgent, self).__init__(**kwargs)
+        super(LPDM_BaseAgent, self).__init__(**kwargs)
         self.time = None            
         self.agent_id = kwargs["device_id"]
         self.last_message_id = None            
@@ -156,7 +156,7 @@ class BaseAgent(Agent):
 
 def main(argv=sys.argv):
     '''Main method called by the eggsecutable.'''
-    utils.vip_main(BaseAgent)
+    utils.vip_main(LPDM_BaseAgent)
 
 
 if __name__ == '__main__':

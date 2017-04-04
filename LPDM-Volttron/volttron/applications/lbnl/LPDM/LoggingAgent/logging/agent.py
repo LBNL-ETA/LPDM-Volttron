@@ -28,7 +28,7 @@ def log_entry_and_exit(f):
 
 jan_1_2015 = 1420099200000
 
-class LoggingAgent(PublishMixin, BaseAgent):
+class LoggingAgent(PublishMixin, LPDM_BaseAgent):
     def __init__(self, **kwargs):
         super(LoggingAgent, self).__init__(**kwargs)      
         self.scenario_id = "simulation"   
