@@ -28,7 +28,7 @@ class SimulationEventsAgent(SimulationAgent):
     @Core.receiver('onstart')
     def on_message_bus_start(self, sender, **kwargs):
         super(SimulationEventsAgent, self).on_message_bus_start(sender, **kwargs)
-        self.send_new_time_until_next_event(self.agent_id, "all", self.events[0]["time"])
+        self.send_new_time_until_next_event(self.agent_id, self.events[0]["time"])
         self.send_finished_initialization()
         
     def get_device(self):
@@ -41,7 +41,6 @@ class SimulationEventsAgent(SimulationAgent):
             self.vip.pubsub.publish("pubsub", CHANGE_DEVICE_PARAMETER_TOPIC_SPECIFIC_AGENT.format(id = event["device_id"]), headers, message)
     
     def onTimeChange(self, new_time):
-        #def send_new_time_until_next_event(self, source_device_id, target_device_id, time_until_next_event):
         next_event = None
         events_to_send = []
         events_yet_to_send = []
@@ -57,7 +56,7 @@ class SimulationEventsAgent(SimulationAgent):
         ttie = 1e100
         if next_event:
             ttie = next_event["time"] - new_time
-        self.send_new_time_until_next_event(self.agent_id, "all", ttie)
+        self.send_new_time_until_next_event(self.agent_id, ttie)
         self.send_finish_processing_message()
         
 

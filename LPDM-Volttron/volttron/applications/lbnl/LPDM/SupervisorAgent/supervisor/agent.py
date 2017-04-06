@@ -5,6 +5,7 @@ import os
 print "\n".join(os.environ['PYTHONPATH'].split(os.pathsep))
 
 import sys
+import cPickle
 
 from volttron.platform.vip.agent import Agent, PubSub, Core
 from volttron.platform.agent import utils
@@ -19,6 +20,7 @@ from applications.lbnl.LPDM.GridControllerAgent.gridcontroller.agent import Grid
 from applications.lbnl.LPDM.PowerSourceAgent.powersource.agent import PowerSourceAgent
 from applications.lbnl.LPDM.SimulationEventsAgent.simulationevents.agent import SimulationEventsAgent
 from applications.lbnl.LPDM.BaseAgent.base.topics import *
+
 #from volttron.applications.lbnl.LPDM.SmapInterfaceAgent.smapinterface.agent import SmapInterfaceAgent
 #from applications.lbnl.LPDM.SmapInterfaceAgent.smapinterface.settings import *
 #from volttron.applications.lbnl.LPDM.SmapInterfaceAgent.smapinterface.topics import QUERY_REQUEST_TOPIC
@@ -143,31 +145,39 @@ class SupervisorAgent(Agent):
                     
         self.publish_scenario_id()
         #self.clear_smap_streams()
-                
+        
+        # first tell the underlying logic about the devices, then start the threads
+        # Otherwise might have some devices send a TTIE before others are registered and start the
+        # simulation before all TTIE events are actually accounted for
+        
+        for id, t in agent_threads.get(GRID_CONTROLLER, []):
+            self.logic.add_agent(id, lambda message_id, ts, id=id : self.send_new_time(id, message_id, ts))
+        
+        for id, t in agent_threads.get(POWER_SOURCE, []):
+            self.logic.add_agent(id, lambda message_id, ts, id=id : self.send_new_time(id, message_id, ts))
+            
+        for id, t in agent_threads.get(EUD, []):
+            self.logic.add_agent(id, lambda message_id, ts, id=id : self.send_new_time(id, message_id, ts))
+            
         #first start grid_controlelrs.  These are the real managers of the system and so should start first
-        if GRID_CONTROLLER in agent_threads:
-            for id, t in agent_threads[GRID_CONTROLLER]:
-                if not t.isAlive():
-                    self.logic.add_agent(id, lambda message_id, ts : self.send_new_time(id, message_id, ts))
-                    t.start()
-                    return            
+        
+        for id, t in agent_threads.get(GRID_CONTROLLER, []):
+            if not t.isAlive():
+                t.start()
+                return            
         
         #next start generators.  They are the things that actually provide power so no point having anything
-        #using power without something to provide the power
-        if POWER_SOURCE in agent_threads:
-            for id, t in agent_threads[POWER_SOURCE]:
-                if not t.isAlive():
-                    self.logic.add_agent(id, lambda message_id, ts : self.send_new_time(id, message_id, ts))
-                    t.start()
-                    return
+        #using power without something to provide the power        
+        for id, t in agent_threads.get(POWER_SOURCE, []):
+            if not t.isAlive():                
+                t.start()
+                return
             
-        #finally start end_use_devices
-        if EUD in agent_threads:
-            for id, t in agent_threads[EUD]:
-                if not t.isAlive():
-                    self.logic.add_agent(id, lambda message_id, ts : self.send_new_time(id, message_id, ts))
-                    t.start()
-                    return
+        #finally start end_use_devices        
+        for id, t in agent_threads.get(EUD, []):
+            if not t.isAlive():                    
+                t.start()
+                return
                 
         #all one starting things up, start the supervisor
 #        self.logic.check_all_agents_ready_for_next_time()
@@ -253,9 +263,9 @@ class SupervisorAgent(Agent):
         responding_to = headers.get("responding_to", None)
         device_id = headers.get(headers_mod.FROM, None)
         print "finished_processing topic:\t{t}\theaders:\t{h}".format(t=topic, h=headers)
-        print
-        print "waiting on:\t{w}".format(w = self.messages_waiting_on)
-        print
+        #print
+        #print "waiting on:\t{w}".format(w = self.messages_waiting_on)
+        #print
         
         self.logic.on_finished_processing_announcement(device_id, responding_to, topic)    
         
@@ -265,14 +275,14 @@ class SupervisorAgent(Agent):
         self.logic.on_device_change_announcement(topic, message_id)        
         
     @PubSub.subscribe("pubsub", POWER_USE_TOPIC)
-    def on_power_consumption_announcement(self, peer, sender, bus, topic, headers, message):
+    def on_power_change_announcement(self, peer, sender, bus, topic, headers, message):
         message_id = headers.get("message_id", None)
         self.logic.on_device_change_announcement(topic, message_id)
         
-    @PubSub.subscribe("pubsub", SET_POWER_TOPIC)
-    def on_set_power_announcement(self, peer, sender, bus, topic, headers, message):
-        message_id = headers.get("message_id", None)
-        self.logic.on_device_change_announcement(topic, message_id)
+#     @PubSub.subscribe("pubsub", SET_POWER_TOPIC)
+#     def on_set_power_announcement(self, peer, sender, bus, topic, headers, message):
+#         message_id = headers.get("message_id", None)
+#         self.logic.on_device_change_announcement(topic, message_id)
     
     
     @PubSub.subscribe("pubsub", TIME_UNTIL_NEXT_EVENT_TOPIC_GLOBAL)
@@ -281,7 +291,8 @@ class SupervisorAgent(Agent):
         message_id = headers.get("message_id", None)
         timestamp = headers.get("timestamp", None)
         timestamp = float(timestamp)
-        time_until_next_event = float(message["time_until_next_event"])
+        message = cPickle.loads(message)
+        time_until_next_event = float(message.value)
         responding_to = headers.get("responding_to", None)
         self.logic.on_time_until_next_event(topic, agent_id, message_id, timestamp, responding_to, time_until_next_event)
                 

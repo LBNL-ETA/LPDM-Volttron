@@ -12,7 +12,7 @@ from device.simulated.diesel_generator import DieselGenerator
 from device.simulated.pv import Pv
 from device.simulated.utility_meter import UtilityMeter
 
-from lpdm_event import LpdmConnectDeviceEvent, LpdmPriceEvent
+from lpdm_event import LpdmConnectDeviceEvent, LpdmPriceEvent, LpdmInitEvent
 import cPickle
 
 def power_source_factory(type_id):
@@ -76,7 +76,8 @@ class PowerSourceAgent(SimulationAgent):
         """
         super(PowerSourceAgent, self).on_message_bus_start(sender, **kwargs)
         #self.subscribed_power_topic = SET_POWER_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
-        self.subscribed_power_topic = POWER_USE_TOPIC_SPECIFIC_AGENT.format(id = self.config["grid_controller_id"])
+        #self.subscribed_power_topic = POWER_USE_TOPIC_SPECIFIC_AGENT.format(id = self.config["grid_controller_id"])
+        self.subscribed_power_topic = POWER_USE_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
         self.power_subscription_id = self.vip.pubsub.subscribe("pubsub", self.subscribed_power_topic, self.on_power_update)
         self.subscribed_price_topic = ENERGY_PRICE_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
         self.price_subscription_id = self.vip.pubsub.subscribe("pubsub", self.subscribed_price_topic, self.on_price_update)        
@@ -84,7 +85,9 @@ class PowerSourceAgent(SimulationAgent):
         self.device_class = power_source_factory(self.device_type)
         self.power_source = self.device_class(self.config)
         self.send_subscriptions()
-        self.broadcast_connection()        
+        self.broadcast_connection()
+        evt = LpdmInitEvent()
+        self.get_device().process_supervisor_event(evt)
         self.send_finished_initialization()
 
     def broadcast_connection(self):

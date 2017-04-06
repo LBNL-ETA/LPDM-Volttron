@@ -15,7 +15,7 @@ from device.simulated.eud import Eud
 from device.simulated.air_conditioner import AirConditioner
 from device.simulated.fixed_consumption import FixedConsumption
 
-from lpdm_event import LpdmConnectDeviceEvent
+from lpdm_event import LpdmConnectDeviceEvent, LpdmInitEvent
 
 def eud_factory(type_id):
     device_type_to_class_map = {}
@@ -61,10 +61,12 @@ class EndUseDeviceAgent(SimulationAgent):
         self.energy_subscription_id = self.vip.pubsub.subscribe("pubsub", self.energy_price_subscribed_topic, self.on_price_update)
         self.device_type = self.config.get("device_type", None)
         self.device_class = eud_factory(self.device_type)
-        self.end_use_device = self.device_class(self.config)
+        self.end_use_device = self.device_class(self.config)        
         #self.end_use_device._price = 0.343784378438
         self.broadcast_connection()
         self.send_subscriptions()
+        evt = LpdmInitEvent()
+        self.get_device().process_supervisor_event(evt)
         self.send_finished_initialization()
         
     def get_device(self):

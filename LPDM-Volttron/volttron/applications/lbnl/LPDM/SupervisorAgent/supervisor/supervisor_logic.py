@@ -31,6 +31,10 @@ class SupervisorLogic(object):
         self.scenario_end_timestamp = end_scenario_timestamp
     
     def add_agent(self, agent_id, agent_time_function):
+        #hack, shouldn't need it but shouldn't hurt anything either
+        if agent_id in self.agents_and_subscriptions:
+            return
+        
         self.agents_and_subscriptions[agent_id] = []
         #Don't know what the message ID of the initial TTIE because it is generated at agent start and not responding to anything
         #so wait on any message id on the agent's TTIE topic
@@ -39,6 +43,7 @@ class SupervisorLogic(object):
         self.messages_waiting_on["any"].append({"topic" : TOPIC_TTIE.format(id = agent_id)})
         self.times_until_next_event[agent_id] = {"responding_to_message_id" : None, "timestamp" : None, "time_until_next_event" : None}
         self.agent_time_functions[agent_id] = agent_time_function
+        #agent_time_function(1, 0)
         
     def on_subscription_announcement(self, agent_id, subscriptions):
         self.agents_and_subscriptions[agent_id] = subscriptions
@@ -57,12 +62,7 @@ class SupervisorLogic(object):
         if agents_to_watch:
             self.messages_waiting_on[message_id] = {"agent_ids" : agents_to_watch, "topic" : topic}
     
-    def on_finished_processing_announcement(self, agent_id, responding_to, topic):
-        print "finished_processing topic:  {t}".format(t=topic)
-        print
-        print "waiting on:\t{w}".format(w = self.messages_waiting_on)
-        print
-        
+    def on_finished_processing_announcement(self, agent_id, responding_to, topic):        
         if topic == "LPDM/finished_processing/Diesel Generator":
             pass
         
@@ -105,7 +105,13 @@ class SupervisorLogic(object):
         self.check_all_agents_ready_for_next_time()
         
     def check_all_agents_ready_for_next_time(self):
+        import pprint
         if len(self.messages_waiting_on):
+            pp = pprint.PrettyPrinter(indent=4)
+            print
+            print "waiting on:\n"#{w}".format(w = "\n".join(self.messages_waiting_on.iteritems()))
+            pp.pprint(self.messages_waiting_on)
+            print
             return
         if self.terminating_scenario:
             self.finished_callback()
@@ -114,6 +120,8 @@ class SupervisorLogic(object):
         earliest_next_event = 1e100
         #last_message_timestamp = self.times_until_next_event.values()[0]["timestamp"]
         for agent_id, values in self.times_until_next_event.items():
+            if agent_id == "eud_1":
+                pass
             ttie = values["time_until_next_event"]
             message_timestamp = values["timestamp"]
             self.time = max(self.time, message_timestamp)

@@ -107,7 +107,7 @@ class LPDM_BaseAgent(Agent):
         topic = POWER_USE_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
         self.vip.pubsub.publish("pubsub", topic, headers, message)
     
-    def send_new_time_until_next_event(self, source_device_id, target_device_id, time_until_next_event):
+    def send_new_time_until_next_event(self, source_device_id, time_until_next_event, target_device_id = "all"):
         """
         Posts a new time until next event message.
         """
@@ -115,7 +115,7 @@ class LPDM_BaseAgent(Agent):
         #message = {"time_until_next_event" : time_until_next_event}
         
         message = LpdmTtieEvent(target_device_id, time_until_next_event)
-        message = cPickle(message)
+        message = cPickle.dumps(message)
         
         topic = TIME_UNTIL_NEXT_EVENT_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
     
@@ -129,7 +129,7 @@ class LPDM_BaseAgent(Agent):
         headers["timestamp"] = timestamp + getattr(self, "message_processing_time", 0)
         #message = {"capacity" : capacity}
         message = LpdmCapacityEvent(source_device_id, target_device_id, timestamp, capacity)
-        message = cPickle(message)
+        message = cPickle.dumps(message)
         topic = POWER_USE_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
         self.vip.pubsub.publish("pubsub", topic, headers, message)
         

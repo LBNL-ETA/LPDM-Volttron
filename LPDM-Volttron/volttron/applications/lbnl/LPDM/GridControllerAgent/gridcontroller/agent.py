@@ -16,7 +16,7 @@ from applications.lbnl.LPDM.BaseAgent.base.topics import *
 
 from device.simulated.grid_controller import GridController 
 
-from lpdm_event import LpdmPriceEvent, LpdmPowerEvent, LpdmCapacityEvent
+from lpdm_event import LpdmPriceEvent, LpdmInitEvent, LpdmPowerEvent
 
 
 def log_entry_and_exit(f):
@@ -59,13 +59,15 @@ class GridControllerAgent(SimulationAgent):
         self.subscription_topics[topic] = self.vip.pubsub.subscribe("pubsub", topic, self.on_add_end_use_device_message)        
         self.send_subscriptions()            
         self.grid_controller = GridController(self.config)
+        evt = LpdmInitEvent()
+        self.get_device().process_supervisor_event(evt)
         self.send_finished_initialization()
             
     def get_device(self):
         return self.grid_controller
      
-    def send_new_price(self, source_device_id, target_device_id, timestamp, price):        
-        headers = self.default_headers(target_device_id)        
+    def send_new_price(self, source_device_id, target_device_id, timestamp, price):
+        headers = self.default_headers(target_device_id)
         headers["timestamp"] = timestamp + self.message_processing_time
         #message = {"price" : price}
         message = LpdmPriceEvent(source_device_id, target_device_id, timestamp, price)
@@ -76,9 +78,11 @@ class GridControllerAgent(SimulationAgent):
 #     def send_new_power(self, source_device_id, target_device_id, timestamp, power):
 #         headers = self.default_headers(target_device_id)     
 #         headers["timestamp"] = timestamp + .001
-#         message = {"power" : power}
+#         #message = {"power" : power}
+#         message = LpdmPowerEvent(source_device_id, target_device_id, timestamp, power)
+#         message = cPickle.dumps(message)
 #         topic = SET_POWER_TOPIC_SPECIFIC_AGENT.format(id = target_device_id)
-#         self.vip.pubsub.publish("pubsub", topic, headers, message)
+#         self.vip.pubsub.publish("pubsub", topic, headers, message)    
     
     def send_subscriptions(self):
         subscriptions = []
@@ -98,15 +102,15 @@ class GridControllerAgent(SimulationAgent):
     def on_add_power_source_message(self, peer, sender, bus, topic, headers, message):
         device_id = headers[headers_mod.FROM]        
         price_topic = ENERGY_PRICE_FROM_ENERGY_PRODUCER_TOPIC_SPECIFIC_AGENT.format(id = device_id)
-        price_subscribe_id = self.vip.pubsub.subscribe("pubsub", price_topic, self.on_generator_price_message)
-        power_topic = POWER_USE_TOPIC_SPECIFIC_AGENT.format(id = device_id)
-        power_subscribe_id = self.vip.pubsub.subscribe("pubsub", power_topic, self.on_generator_power_use_message)
+        price_subscribe_id = self.vip.pubsub.subscribe("pubsub", price_topic, self.on_power_source_price_message)
+        #power_topic = POWER_USE_TOPIC_SPECIFIC_AGENT.format(id = device_id)
+        #power_subscribe_id = self.vip.pubsub.subscribe("pubsub", power_topic, self.on_power_source_power_use_message)
         capacity_topic = CAPACITY_TOPIC_SPECIFIC_AGENT.format(id = device_id)
-        capacity_subscribe_id = self.vip.pubsub.subscribe("pubsub", capacity_topic, self.on_generator_capacity_message)
+        capacity_subscribe_id = self.vip.pubsub.subscribe("pubsub", capacity_topic, self.on_power_source_capacity_message)
         self.generators[device_id] = {"price_topic" : price_topic, 
                                       "subscription_id" : price_subscribe_id, 
-                                      "power_topic" : power_topic, 
-                                      "power_susbscription_id" : power_subscribe_id,
+                                      #"power_topic" : power_topic, 
+                                      #"power_susbscription_id" : power_subscribe_id,
                                       "capacity_topic" : capacity_topic,
                                       "capacity_subscription_id" : capacity_subscribe_id}
         
@@ -115,15 +119,17 @@ class GridControllerAgent(SimulationAgent):
         self.grid_controller.process_supervisor_event(evt)      
         self.send_subscriptions()
         
-    def on_generator_power_use_message(self, peer, sender, bus, topic, headers, message):
+    def on_power_source_power_use_message(self, peer, sender, bus, topic, headers, message):
         device_id = headers.get(headers_mod.FROM, None)
         evt = cPickle.loads(message)
         self.grid_controller.process_supervisor_event(evt)
+        self.send_finish_processing_message()
             
-    def on_generator_capacity_message(self, peer, sender, bus, topic, headers, message):
+    def on_power_source_capacity_message(self, peer, sender, bus, topic, headers, message):
         device_id = headers.get(headers_mod.FROM, None)
         evt = cPickle.loads(message)
         self.grid_controller.process_supervisor_event(evt)
+        self.send_finish_processing_message()
         
     def on_add_end_use_device_message(self, peer, sender, bus, topic, headers, message):
         device_id = headers[headers_mod.FROM]
@@ -189,13 +195,12 @@ class GridControllerAgent(SimulationAgent):
         self.send_finish_processing_message()
         
             
-    def on_generator_price_message(self, peer, sender, bus, topic, headers, message):
+    def on_power_source_price_message(self, peer, sender, bus, topic, headers, message):
         device_id = headers.get(headers_mod.FROM, None)
         if device_id == self.agent_id:
             return
         message_id = headers.get("message_id", None)
-        self.last_message_id = message_id
-        price = message.get("price")        
+        self.last_message_id = message_id            
         timestamp = headers.get("timestamp", None)
         if timestamp > self.time:
             self.time = timestamp
