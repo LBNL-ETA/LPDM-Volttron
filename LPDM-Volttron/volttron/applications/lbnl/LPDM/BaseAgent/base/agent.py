@@ -3,11 +3,14 @@
 
 
 import sys
+import cPickle
 
 from volttron.platform.vip.agent import Agent, Core, PubSub
 from volttron.platform.agent import utils
 from volttron.platform.messaging import headers as headers_mod
 from topics import *
+
+from lpdm_event import LpdmPowerEvent, LpdmTtieEvent, LpdmCapacityEvent
 
 class LPDM_BaseAgent(Agent):
     """
@@ -15,7 +18,7 @@ class LPDM_BaseAgent(Agent):
     like handling messages or setting the interface for subclasses to handle messages where necessary
     and the basic headers of the message.  Also handles messages for changing device settings.        
     """
-    def __init__(self, **kwargs):
+    def __init__(self, config_path, **kwargs):
         """
         :param device_id:  string, the id of the device in the system.  Should be unique within the run.
         """
@@ -27,7 +30,7 @@ class LPDM_BaseAgent(Agent):
     @Core.receiver('onstart')
     def on_message_bus_start(self, sender, **kwargs):
         """
-        Subscribes to the specific devic's parameter change topic.  If any message calling for a paramater change in this device
+        Subscribes to the specific devic's parameter change topic.  If any message calling for a parameter change in this device
         E.G. if the subclass of this is Generator and there is a message to change the refuel date it should target the
         on_device_parameter_change_message function
         """
@@ -98,7 +101,9 @@ class LPDM_BaseAgent(Agent):
         """
         headers = self.default_headers(target_device_id)             
         headers["timestamp"] = timestamp + getattr(self, "message_processing_time", 0)
-        message = {"power" : power}
+        #message = {"power" : power}
+        message = LpdmPowerEvent(source_device_id, target_device_id, timestamp, power)
+        message = cPickle.dumps(message)
         topic = POWER_USE_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
         self.vip.pubsub.publish("pubsub", topic, headers, message)
     
@@ -107,9 +112,25 @@ class LPDM_BaseAgent(Agent):
         Posts a new time until next event message.
         """
         headers = self.default_headers(target_device_id)      
-        message = {"time_until_next_event" : time_until_next_event}
+        #message = {"time_until_next_event" : time_until_next_event}
+        
+        message = LpdmTtieEvent(target_device_id, time_until_next_event)
+        message = cPickle(message)
+        
         topic = TIME_UNTIL_NEXT_EVENT_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
     
+        self.vip.pubsub.publish("pubsub", topic, headers, message)
+        
+    def send_new_capacity(self, source_device_id, target_device_id, timestamp, capacity):
+        """
+        Posts a new capacity message.
+        """
+        headers = self.default_headers(target_device_id)             
+        headers["timestamp"] = timestamp + getattr(self, "message_processing_time", 0)
+        #message = {"capacity" : capacity}
+        message = LpdmCapacityEvent(source_device_id, target_device_id, timestamp, capacity)
+        message = cPickle(message)
+        topic = POWER_USE_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
         self.vip.pubsub.publish("pubsub", topic, headers, message)
         
     def send_finished_initialization(self):

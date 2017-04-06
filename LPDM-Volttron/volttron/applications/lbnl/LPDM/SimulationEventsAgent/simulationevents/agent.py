@@ -10,8 +10,8 @@ from device.simulated.eud import Eud
 
 class SimulationEventsAgent(SimulationAgent):
     
-    def __init__(self, **kwargs):
-        super(SimulationEventsAgent, self).__init__(**kwargs)
+    def __init__(self, config_path, **kwargs):
+        super(SimulationEventsAgent, self).__init__(config_path, **kwargs)
         
         try:
             config = kwargs

@@ -3,27 +3,26 @@
 
 
 import sys
-
+import cPickle
 
 from volttron.platform.agent import utils
 from volttron.platform.messaging import headers as headers_mod
 from volttron.platform.vip.agent import Core
-from volttron.applications.lbnl.LPDM.BaseAgent.base.topics import *
-from volttron.applications.lbnl.LPDM.SimulationAgent.simulation.agent import SimulationAgent
+from applications.lbnl.LPDM.BaseAgent.base.topics import *
+from applications.lbnl.LPDM.SimulationAgent.simulation.agent import SimulationAgent
 
 from device.simulated.eud import Eud
-from device.simulated.hue_light_eud import Light
-#from tug_devices.light import Light as WemoLight
-from device.simulated.refrigerator import Refrigerator
 from device.simulated.air_conditioner import AirConditioner
+from device.simulated.fixed_consumption import FixedConsumption
+
+from lpdm_event import LpdmConnectDeviceEvent
 
 def eud_factory(type_id):
     device_type_to_class_map = {}
-    device_type_to_class_map["hue_light"] = Light
-    device_type_to_class_map["refrigerator"] = Refrigerator
+    device_type_to_class_map["fixed_consumption"] = FixedConsumption
     device_type_to_class_map["air_conditioner"] = AirConditioner
-    #device_type_to_class_map["wemo_light"] = WemoLight
     
+    #if it isn't a specialized type just use the basic EUD
     return device_type_to_class_map.get(type_id, Eud)
         
 
@@ -32,8 +31,8 @@ class EndUseDeviceAgent(SimulationAgent):
     A base class for all power-consuming objects in the system.  Registers some of its functions with the 
     underlying device's config file.
     """
-    def __init__(self, **kwargs):
-        super(EndUseDeviceAgent, self).__init__(**kwargs)
+    def __init__(self, config_path, **kwargs):
+        super(EndUseDeviceAgent, self).__init__(config_path, **kwargs)
         
         try:
             config = kwargs
@@ -41,10 +40,11 @@ class EndUseDeviceAgent(SimulationAgent):
             self.grid_controller_id = config["grid_controller_id"]
         except:
             config = {}           
-        config["broadcastNewPrice"] = self.send_new_price
-        config["broadcastNewPower"] = self.send_new_power
-        config["broadcastNewTTIE"] = self.send_new_time_until_next_event 
-        self.config = self.configure_logger(config)     
+        config["broadcast_new_power"] = self.send_new_power
+        config["broadcast_new_price"] = self.send_new_price
+        config["broadcast_new_ttie"] = self.send_new_time_until_next_event
+        config["broadcast_new_capacity"] = self.send_new_capacity   
+        self.config = config     
         
     def send_new_price(self, source_device_id, target_device_id, timestamp, price):
         raise NotImplementedError("End use devices should not be sending price information.")
@@ -59,9 +59,10 @@ class EndUseDeviceAgent(SimulationAgent):
         super(EndUseDeviceAgent, self).on_message_bus_start(sender, **kwargs)
         self.energy_price_subscribed_topic = ENERGY_PRICE_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
         self.energy_subscription_id = self.vip.pubsub.subscribe("pubsub", self.energy_price_subscribed_topic, self.on_price_update)
-        eud_class = eud_factory(self.config.get("device_type", None))
-        self.end_use_device = eud_class(self.config)
-        self.end_use_device._price = 0.343784378438
+        self.device_type = self.config.get("device_type", None)
+        self.device_class = eud_factory(self.device_type)
+        self.end_use_device = self.device_class(self.config)
+        #self.end_use_device._price = 0.343784378438
         self.broadcast_connection()
         self.send_subscriptions()
         self.send_finished_initialization()
@@ -79,7 +80,9 @@ class EndUseDeviceAgent(SimulationAgent):
         """
         headers = self.default_headers(None)
         topic = ADD_END_USE_DEVICE_TOPIC.format(id = self.grid_controller_id)
-        self.vip.pubsub.publish("pubsub", topic, headers, {"agent_id" : self.agent_id})
+        message = LpdmConnectDeviceEvent(self.end_use_device._device_id, self.device_type, self.device_class)
+        message = cPickle.dumps(message)
+        self.vip.pubsub.publish("pubsub", topic, headers, message)
         
     def send_subscriptions(self):
         """
@@ -104,7 +107,7 @@ class EndUseDeviceAgent(SimulationAgent):
         timestamp = headers.get("timestamp", None)
         if timestamp > self.time:
             self.time = timestamp
-        self.end_use_device.onPriceChange(device_id, self.end_use_device._device_id, int(self.time), price)
+        self.end_use_device.on_price_change(device_id, self.end_use_device._device_id, int(self.time), price)
         self.send_finish_processing_message()
 
 

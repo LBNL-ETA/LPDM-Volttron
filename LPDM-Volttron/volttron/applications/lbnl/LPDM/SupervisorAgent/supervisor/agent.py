@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*- {{{
 # vim: set fenc=utf-8 ft=python sw=4 ts=4 sts=4 et:
 
+import os
+print "\n".join(os.environ['PYTHONPATH'].split(os.pathsep))
 
 import sys
-from volttron.platform.vip.agent import Agent, Core, PubSub, compat
+
+from volttron.platform.vip.agent import Agent, PubSub, Core
 from volttron.platform.agent import utils
 from volttron.platform.agent.utils import jsonapi
 from volttron.platform.agent.matching import match_start
@@ -11,15 +14,15 @@ from volttron.platform.messaging import headers as headers_mod
 
 import threading
 
-from volttron.applications.lbnl.LPDM.EndUseDeviceAgent.endusedevice.agent import EndUseDeviceAgent 
-from volttron.applications.lbnl.LPDM.GridControllerAgent.gridcontroller.agent import GridControllerAgent
-from volttron.applications.lbnl.LPDM.GeneratorAgent.generator.agent import DieselGeneratorAgent
-from volttron.applications.lbnl.LPDM.SimulationEventsAgent.simulationevents.agent import SimulationEventsAgent
-from volttron.applications.lbnl.LPDM.BaseAgent.base.topics import *
+from applications.lbnl.LPDM.EndUseDeviceAgent.endusedevice.agent import EndUseDeviceAgent 
+from applications.lbnl.LPDM.GridControllerAgent.gridcontroller.agent import GridControllerAgent
+from applications.lbnl.LPDM.PowerSourceAgent.powersource.agent import PowerSourceAgent
+from applications.lbnl.LPDM.SimulationEventsAgent.simulationevents.agent import SimulationEventsAgent
+from applications.lbnl.LPDM.BaseAgent.base.topics import *
 #from volttron.applications.lbnl.LPDM.SmapInterfaceAgent.smapinterface.agent import SmapInterfaceAgent
-from volttron.applications.lbnl.LPDM.SmapInterfaceAgent.smapinterface.settings import *
+#from applications.lbnl.LPDM.SmapInterfaceAgent.smapinterface.settings import *
 #from volttron.applications.lbnl.LPDM.SmapInterfaceAgent.smapinterface.topics import QUERY_REQUEST_TOPIC
-from volttron.applications.lbnl.LPDM.LoggingAgent.logging.agent import LoggingAgent
+#from applications.lbnl.LPDM.LoggingAgent.logging.agent import LoggingAgent
 
 from time import sleep
 from uuid import uuid4
@@ -34,13 +37,19 @@ def log_entry_and_exit(f):
         return res
     return _f
 
+EUD = "euds"
+GRID_CONTROLLER = "grid_controllers"
+POWER_SOURCE = "power_sources"
+
 class SupervisorAgent(Agent):
-    def __init__(self, **kwargs):
+    def __init__(self, config_path, **kwargs):
         import os
         import json
         
         super(SupervisorAgent, self).__init__(**kwargs)
-        self.available_agent_types = {"End_Use_Device" : EndUseDeviceAgent, "Grid_Controller" : GridControllerAgent, "Generator" : DieselGeneratorAgent}
+        self.available_agent_types = {EUD : EndUseDeviceAgent, 
+                                      GRID_CONTROLLER : GridControllerAgent, 
+                                      POWER_SOURCE : PowerSourceAgent}        
         self.messages_waiting_on = {"any" : []}
         try:
             os.remove("/tmp/LPDM.log")
@@ -59,14 +68,15 @@ class SupervisorAgent(Agent):
         self.scenario = kwargs.get("scenario", None)
         
         if not self.scenario:
-            raise RuntimeError("Missing Scenario")
+            #raise RuntimeError("Missing Scenario")
+            fname = "/home/bob/workspace/LPDM/scenarios/utility_meter_test.json"
+            with open(fname, "r") as f:
+                self.scenario = json.load(f)
             
 
         self.times_until_next_event = {}        
         self.agent_threads = self.process_scenario(self.scenario)
-        
-        
-        
+
 #        self.agent_threads["smap_interface"] = [ threading.Thread(target = utils.vip_main, 
 #                                                          args = (SmapInterfaceAgent, ))]  
         
@@ -88,14 +98,14 @@ class SupervisorAgent(Agent):
         self.grid_controllers = []
         
         
-    def clear_smap_streams(self):
-        query = "delete where Metadata/SourceName = 'LPDM' and Path like '/{scenario_id}/%';".format(scenario_id = self.scenario_id)
-        message = {"query" : query}
-        headers = {}
-        headers[headers_mod.FROM] = self.agent_id
-        headers["SmapRoot"] = "http://elnhv.lbl.gov"
-        headers["ApiKey"] = "3EYQy04hlPpA03SixKcRJaIreUrnpdYu9bNn"
-        self.vip.pubsub.publish("pubsub", QUERY_REQUEST_TOPIC, headers, message)
+#     def clear_smap_streams(self):
+#         query = "delete where Metadata/SourceName = 'LPDM' and Path like '/{scenario_id}/%';".format(scenario_id = self.scenario_id)
+#         message = {"query" : query}
+#         headers = {}
+#         headers[headers_mod.FROM] = self.agent_id
+#         headers["SmapRoot"] = "http://elnhv.lbl.gov"
+#         headers["ApiKey"] = "3EYQy04hlPpA03SixKcRJaIreUrnpdYu9bNn"
+#         self.vip.pubsub.publish("pubsub", QUERY_REQUEST_TOPIC, headers, message)
         
     def publish_scenario_id(self):
         message = {"scenario_id" : self.scenario_id}
@@ -132,11 +142,11 @@ class SupervisorAgent(Agent):
                     return
                     
         self.publish_scenario_id()
-        self.clear_smap_streams()
+        #self.clear_smap_streams()
                 
         #first start grid_controlelrs.  These are the real managers of the system and so should start first
-        if "Grid_Controller" in agent_threads:
-            for id, t in agent_threads["Grid_Controller"]:
+        if GRID_CONTROLLER in agent_threads:
+            for id, t in agent_threads[GRID_CONTROLLER]:
                 if not t.isAlive():
                     self.logic.add_agent(id, lambda message_id, ts : self.send_new_time(id, message_id, ts))
                     t.start()
@@ -144,16 +154,16 @@ class SupervisorAgent(Agent):
         
         #next start generators.  They are the things that actually provide power so no point having anything
         #using power without something to provide the power
-        if "Generator" in agent_threads:
-            for id, t in agent_threads["Generator"]:
+        if POWER_SOURCE in agent_threads:
+            for id, t in agent_threads[POWER_SOURCE]:
                 if not t.isAlive():
                     self.logic.add_agent(id, lambda message_id, ts : self.send_new_time(id, message_id, ts))
                     t.start()
                     return
             
         #finally start end_use_devices
-        if "End_Use_Device" in agent_threads:
-            for id, t in agent_threads["End_Use_Device"]:
+        if EUD in agent_threads:
+            for id, t in agent_threads[EUD]:
                 if not t.isAlive():
                     self.logic.add_agent(id, lambda message_id, ts : self.send_new_time(id, message_id, ts))
                     t.start()
@@ -172,7 +182,9 @@ class SupervisorAgent(Agent):
         if res["host"] is None:
             res = None
         
-        return res 
+        return res
+    
+    
         
     def process_scenario(self, scenario):
         import json
@@ -181,32 +193,33 @@ class SupervisorAgent(Agent):
             with open(scenario, "r") as f:
                 scenario = json.load(f)                    
                     
-        agent_threads = {"Grid_Controller" : [], "End_Use_Device" : [], "Generator" : []}
+        agent_threads = {GRID_CONTROLLER : [], EUD : [], POWER_SOURCE : []}
         scenario_id = scenario.get("client_id", None)#["scenario_id"]
         self.scenario_id = scenario_id
         if isinstance(scenario["devices"], basestring):
-            components = json.loads(scenario["devices"])#["components"]
+            device_categories_and_devices = json.loads(scenario["devices"])#["components"]
         else:
-            components = scenario["devices"]
+            device_categories_and_devices = scenario["devices"]
         
         dashboard_info = self.get_dashboard_info(scenario)
             
         #for agent_type, agent_params in scenario.items():
-        for component in components:
-            component_type = component["type"]
-            component_params = component
-            component_params["dashboard"] = dashboard_info
-            component_params["device_id"] = component_params["device_id"] if component_params["device_id"] else component_params["device_name"]
-            if component_type not in self.available_agent_types:
-                raise RuntimeError("Unknown scenario parameter:\t{s}".format(s = component_type))
-            
-            self.agents_and_subscriptions[component_params["device_id"]] = []
-            t = threading.Thread(target = utils.vip_main, 
-                                 args = (self.available_agent_types[component_type],), 
-                                 kwargs = component_params)
-                                 
-            device_id = component_params["device_id"]
-            agent_threads[component_type].append((device_id, t))
+        for device_category, device_list in device_categories_and_devices.iteritems():
+            for device in device_list:
+                device_type = device["device_type"]
+                device_params = device
+                device_params["dashboard"] = dashboard_info
+                device_params["device_id"] = device_params["device_id"] if device_params["device_id"] else device_params["device_name"]
+                if device_category not in self.available_agent_types:
+                    raise RuntimeError("Unknown scenario parameter:\t{s}".format(s = device_category))
+                
+                self.agents_and_subscriptions[device_params["device_id"]] = []
+                t = threading.Thread(target = utils.vip_main, 
+                                     args = (self.available_agent_types[device_category],), 
+                                     kwargs = device_params)
+                                     
+                device_id = device_params["device_id"]
+                agent_threads[device_category].append((device_id, t))
             
             
         self.events = []
