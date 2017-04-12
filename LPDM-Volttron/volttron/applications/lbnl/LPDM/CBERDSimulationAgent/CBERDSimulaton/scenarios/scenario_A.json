@@ -1,0 +1,159 @@
+{
+    "run_time_days": "7",
+    "static_price": 0,
+    "devices": [{
+            "capacity": "10000.0",
+            "days_to_refuel": "7",
+            "device_id": "",
+            "device_name": "Diesel Generator",
+            "device_type": "diesel_generator",
+            "fuel_base_cost": "5",
+            "fuel_level": "100.0",
+            "fuel_price_change_rate": "10",
+            "fuel_reserve": "20.0",
+            "fuel_tank_capacity": "100.0",
+            "gen_eff_100": "40",
+            "gen_eff_zero": "25",
+            "grid_controller_id": "grid_controller",
+            "kwh_per_gallon": "36.36",
+            "price_reassess_time": "3600",
+            "time_to_reassess_fuel": "21600",
+            "type": "Generator",
+            "uuid": 1
+        }, {
+            "capacity": "10000.0",
+            "device_id": "",
+            "device_name": "grid_controller",
+            "device_type": "grid_controller",
+            "pv": "0",
+            "type": "Grid_Controller",
+            "uuid": 2
+        }, {
+            "current_set_point": "25",
+            "current_temperature": "25",
+            "device_id": "",
+            "device_name": "air_conditioner",
+            "device_type": "air_conditioner",
+            "grid_controller_id": "grid_controller",
+            "max_power_use": "7000.0",
+            "set_point_high": "27",
+            "set_point_low": "23",
+            "temperature_max_delta": "0.5",
+            "temperature_reassesment_time": "600.0",
+            "type": "End_Use_Device",
+            "price_range_low": 0.2,
+            "price_range_high": 1.2,
+            "set_point_schedule": [[0, 20.0, 30.0], [1, 20.0, 30.0], [2, 20.0, 30.0], [3, 20.0, 30.0], [4, 20.0, 30.0], [5, 20.0, 30.0], [6, 20.0, 30.0], [7, 20.0, 30.0], [8, 20.0, 30.0], [9, 20.0, 30.0], [10, 20.0, 30.0], [11, 20.0, 30.0], [12, 20.0, 30.0], [13, 20.0, 30.0], [14, 20.0, 30.0], [15, 20.0, 30.0], [16, 20.0, 30.0], [17, 20.0, 30.0], [18, 20.0, 30.0], [19, 20.0, 30.0], [20, 20.0, 30.0], [21, 20.0, 30.0], [22, 20.0, 30.0], [23, 20.0, 30.0]],
+            "set_point_factor": 0.05,
+            "uuid": 3,
+            "plot_config": {
+                "resolution": "on_change",
+                "on_change": true,
+                "time_interval": 600,
+                "height": 500,
+                "width": 500,
+                "items": [{
+                        "file_name": "air_conditioner_indoor_temperature.pdf",
+                        "title": "Air Conditioner Indoor Temperature",
+                        "on_change": true,
+                        "time_interval": 600,
+                        "height": 500,
+                        "width": 900,
+                        "parameter": "current_temperature"
+                }, {
+                        "file_name": "air_conditioner_outdoor_temperature.pdf",
+                        "title": "Air Conditioner Current Outdoor Temperature",
+                        "on_change": true,
+                        "time_interval": 600,
+                        "height": 500,
+                        "width": 900,
+                        "parameter": "current_outdoor_temperature"
+                }, {
+                        "file_name": "air_conditioner_power_output.pdf",
+                        "title": "Air Conditioner Power Output",
+                        "on_change": true,
+                        "time_interval": 600,
+                        "height": 500,
+                        "width": 900,
+                        "parameter": "power_level"
+                }, {
+                        "file_name": "air_conditioner_fuel_price.pdf",
+                        "title": "Air Conditioner Fuel Price",
+                        "on_change": true,
+                        "time_interval": 600,
+                        "height": 500,
+                        "width": 900,
+                        "parameter": "fuel_price"
+                }, {
+                        "file_name": "air_conditioner_set_point.pdf",
+                        "title": "Air Conditioner Set Point",
+                        "on_change": true,
+                        "time_interval": 600,
+                        "height": 500,
+                        "width": 900,
+                        "parameter": "set_point"
+                }, {
+                        "file_name": "air_conditioner_total_energy_use.pdf",
+                        "title": "Air Conditioner Total Energy kWh",
+                        "on_change": true,
+                        "time_interval": 600,
+                        "height": 500,
+                        "width": 900,
+                        "parameter": "total_energy_use"
+                }]
+            }
+        }, {
+            "device_id": "",
+            "device_name": "Main Lights",
+            "device_type": "wemo_light",
+            "grid_controller_id": "grid_controller",
+            "is_real_device": "0",
+            "max_power_use": "500.0",
+            "price_dim_start": "0.4",
+            "price_dim_end": "0.7",
+            "price_off": "0.9",
+            "schedule": [["0300", 1], ["2300", 0]],
+            "type": "End_Use_Device",
+            "uuid": 4
+        }, {
+            "device_id": "",
+            "device_name": "Task Lights",
+            "device_type": "wemo_light",
+            "grid_controller_id": "grid_controller",
+            "is_real_device": "0",
+            "max_power_use": "100.0",
+            "price_dim_start": "0.5",
+            "price_dim_end": "1.0",
+            "price_off": "1.2",
+            "schedule": [["0300", 1], ["2300", 0]],
+            "type": "End_Use_Device",
+            "uuid": 5
+        }, {
+            "device_id": "",
+            "device_name": "Lap tops",
+            "device_type": "eud",
+            "grid_controller_id": "grid_controller",
+            "is_real_device": "0",
+            "max_power_use": "300.0",
+            "price_dim_start": "0.7",
+            "price_dim_end": "1.1",
+            "price_off": "1.4",
+            "schedule": [["0300", 1], ["2300", 0]],
+            "type": "End_Use_Device",
+            "uuid": 6
+        }, {
+            "device_id": "",
+            "device_name": "Comms Gear",
+            "device_type": "eud",
+            "grid_controller_id": "grid_controller",
+            "is_real_device": "0",
+            "max_power_use": "1000.0",
+            "price_dim_start": "2.0",
+            "price_dim_end": "2.0",
+            "price_off": "2.0",
+            "schedule": [["0002", 1], ["2358", 0]],
+            "type": "End_Use_Device",
+            "uuid": 7
+        }
+    ]
+}
