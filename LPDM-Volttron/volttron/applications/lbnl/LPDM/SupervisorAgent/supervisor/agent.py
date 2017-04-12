@@ -256,7 +256,7 @@ class SupervisorAgent(Agent):
     
     def post_fininished_message_to_dashboard(self):
         pass
-    
+
     @PubSub.subscribe("pubsub", FINISHED_PROCESSING_MESSSAGE)
     def on_finished_processing_announcement(self, peer, sender, bus, topic, headers, message):
         #self.on_device_change_announcement(topic, headers, message, matched)
@@ -268,12 +268,12 @@ class SupervisorAgent(Agent):
         #print
         
         self.logic.on_finished_processing_announcement(device_id, responding_to, topic)    
-        
+
     @PubSub.subscribe("pubsub", ENERGY_PRICE_TOPIC)
     def on_energy_price_announcement(self, peer, sender, bus, topic, headers, message):
         message_id = headers.get("message_id", None)
         self.logic.on_device_change_announcement(topic, message_id)        
-        
+
     @PubSub.subscribe("pubsub", POWER_USE_TOPIC)
     def on_power_change_announcement(self, peer, sender, bus, topic, headers, message):
         message_id = headers.get("message_id", None)

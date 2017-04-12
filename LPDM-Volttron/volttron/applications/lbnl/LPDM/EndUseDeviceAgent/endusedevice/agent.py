@@ -102,14 +102,15 @@ class EndUseDeviceAgent(SimulationAgent):
         Handles reacting to a new energy price message.  Updates the local time,
         calls onPriceChange on the underlying device, and sends a finished processing message.
         """
+        message = cPickle.loads(message)
         device_id = headers.get(headers_mod.FROM, None)
         message_id = headers.get("message_id", None)
         self.last_message_id = message_id
-        price = message.get("price", None)
+        price = message.value
         timestamp = headers.get("timestamp", None)
         if timestamp > self.time:
             self.time = timestamp
-        self.end_use_device.on_price_change(device_id, self.end_use_device._device_id, int(self.time), price)
+        self.end_use_device.process_supervisor_event(message)
         self.send_finish_processing_message()
 
 

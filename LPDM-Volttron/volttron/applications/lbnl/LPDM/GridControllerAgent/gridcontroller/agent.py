@@ -167,31 +167,32 @@ class GridControllerAgent(SimulationAgent):
         self.send_subscriptions()
     
     def on_end_use_device_power_use_message(self, peer, sender, bus, topic, headers, message):
+        message = cPickle.loads(message)
         device_id = headers.get(headers_mod.FROM, None)
         message_id = headers.get("message_id", None)
         self.last_message_id = message_id
-        power_use = message.get("power", None)
+        power_use = message.value
         timestamp = headers.get("timestamp", None)
         if timestamp > self.time:
             self.time = timestamp
 
-        evt = cPickle.loads(message)
-        self.grid_controller.process_supervisor_event(evt)
+        self.grid_controller.process_supervisor_event(message)
         #self.grid_controller.on_power_change(device_id, None, int(self.time), power_use)
         self.send_finish_processing_message()
         
     def on_end_use_device_capacity_message(self, peer, sender, bus, topic, headers, message):
+        message = cPickle.loads(message)
         device_id = headers.get(headers_mod.FROM, None)
         message_id = headers.get("message_id", None)
         self.last_message_id = message_id
-        capacity = message.get("capacity", None)
+        capacity = message.value
         timestamp = headers.get("timestamp", None)
         if timestamp > self.time:
             self.time = timestamp
 
         #self.grid_controller.on_capacity_change(device_id, None, int(self.time), capacity)
-        evt = cPickle.loads(message)
-        self.grid_controller.process_supervisor_event(evt)
+        
+        self.grid_controller.process_supervisor_event(message)
         self.send_finish_processing_message()
         
             

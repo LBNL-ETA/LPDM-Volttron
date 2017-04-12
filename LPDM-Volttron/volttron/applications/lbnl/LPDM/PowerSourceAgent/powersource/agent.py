@@ -61,7 +61,8 @@ class PowerSourceAgent(SimulationAgent):
         self.vip.pubsub.publish("pubsub", topic, headers, message)
         try:
             fuel_topic = FUEL_LEVEL_TOPIC.format(id = self.agent_id)
-            message = {"fuel_level" : self.get_device()._fuel_level}
+            
+            message = {"value" : self.get_device()._fuel_level}
             self.vip.pubsub.publish("pubsub", fuel_topic, headers, message)
         except:
             pass
@@ -122,15 +123,15 @@ class PowerSourceAgent(SimulationAgent):
         Handles reacting to a new power use message.  Updates the local time,
         calls onPriceChange on the underlying device, and sends a finished processing message.
         """  
+        message = cPickle.loads(message)
         device_id = headers.get(headers_mod.FROM, None)
         message_id = headers.get("message_id", None)
         self.last_message_id = message_id
-        power = message.get("power", None)
+        power = message.value
         timestamp = headers.get("timestamp", None)
         if timestamp > self.time:
-            self.time = timestamp
-        evt = cPickle.loads(message)
-        self.power_source.process_supervisor_event(evt)
+            self.time = timestamp        
+        self.power_source.process_supervisor_event(message)
         #self.power_source.on_time_change(self.time)
         #self.power_source.on_power_change(device_id, self.diesel_generator._device_id, int(self.time), power)        
         self.send_finish_processing_message()              
