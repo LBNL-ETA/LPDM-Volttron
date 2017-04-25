@@ -1,4 +1,6 @@
 {
-    "agentid": "TROPEC_GridController",
-    "message": "TROPEC Grid Controller"
+    "agentid": "grid_controller_1",
+    "message": "LPDM Grid Controller",
+    "device_id" : "grid_controller_1",
+    "device_type": "grid_controller"
 }

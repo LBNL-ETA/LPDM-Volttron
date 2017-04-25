@@ -32,19 +32,26 @@ class EndUseDeviceAgent(SimulationAgent):
     underlying device's config file.
     """
     def __init__(self, config_path, **kwargs):
-        super(EndUseDeviceAgent, self).__init__(config_path, **kwargs)
+        
+        config = utils.load_config(config_path)
         
         try:
-            config = kwargs
             config["device_name"] = config["device_id"]
             self.grid_controller_id = config["grid_controller_id"]
         except:
-            config = {}           
+            raise RuntimeError("Invalid configuration")     
+              
         config["broadcast_new_power"] = self.send_new_power
         config["broadcast_new_price"] = self.send_new_price
         config["broadcast_new_ttie"] = self.send_new_time_until_next_event
-        config["broadcast_new_capacity"] = self.send_new_capacity   
-        self.config = config     
+        config["broadcast_new_capacity"] = self.send_new_capacity
+        config["broadcast"] = self.LPDM_broadcast
+        
+        # This needs to come after adding the callbacks to config due to LPDM now
+        # only having one callback instead of several.  The actual mappings of 
+        # what gets returned by the LPDM code will be handled in the LPDM_BaseAgent
+        super(EndUseDeviceAgent, self).__init__(config, **kwargs)
+           
         
     def send_new_price(self, source_device_id, target_device_id, timestamp, price):
         raise NotImplementedError("End use devices should not be sending price information.")
@@ -83,6 +90,8 @@ class EndUseDeviceAgent(SimulationAgent):
         headers = self.default_headers(None)
         topic = ADD_END_USE_DEVICE_TOPIC.format(id = self.grid_controller_id)
         message = LpdmConnectDeviceEvent(self.end_use_device._device_id, self.device_type, self.device_class)
+        with open("/tmp/EUD_broadcast_connection", "a") as f:
+            f.write(str(message) + "\n")
         message = cPickle.dumps(message)
         self.vip.pubsub.publish("pubsub", topic, headers, message)
         
@@ -103,6 +112,8 @@ class EndUseDeviceAgent(SimulationAgent):
         calls onPriceChange on the underlying device, and sends a finished processing message.
         """
         message = cPickle.loads(message)
+        with open("/tmp/EUD_on_price_update", "a") as f:
+            f.write(str(message) + "\n")
         device_id = headers.get(headers_mod.FROM, None)
         message_id = headers.get("message_id", None)
         self.last_message_id = message_id

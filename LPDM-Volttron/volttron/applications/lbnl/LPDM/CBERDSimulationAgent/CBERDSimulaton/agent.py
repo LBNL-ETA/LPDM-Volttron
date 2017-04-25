@@ -73,7 +73,7 @@ class CBERDSimulation(Agent):
         
         if not self.scenario:
             #raise RuntimeError("Missing Scenario")
-            fname = "/home/bob/workspace/LPDM/scenarios/utility_meter_test.json"
+            fname = "/home/pi/LPDM/scenarios/utility_meter_only.json"
             with open(fname, "r") as f:
                 self.scenario = json.load(f)
             

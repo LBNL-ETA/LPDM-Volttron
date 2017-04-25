@@ -1,4 +1,4 @@
 {
-    "agentid": "TROPEC_EndUseDevice",
-    "message": "TROPEC End Use Device Agent"
+    "agentid": "LPDM_PowerSource",
+    "message": "Power Source Agent"
 }

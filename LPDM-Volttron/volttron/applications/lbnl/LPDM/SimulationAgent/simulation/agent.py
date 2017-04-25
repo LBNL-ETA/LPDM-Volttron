@@ -15,8 +15,8 @@ from simulation_logger import SimulationLogger
 
 
 class SimulationAgent(LPDM_BaseAgent):
-    def __init__(self, config_path, **kwargs):
-            super(SimulationAgent, self).__init__(config_path, **kwargs)
+    def __init__(self, config, **kwargs):
+            super(SimulationAgent, self).__init__(config, **kwargs)
             self.time = 0
             self.message_processing_time = .001
             

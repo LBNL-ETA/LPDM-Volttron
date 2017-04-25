@@ -10,7 +10,7 @@ from volttron.platform.agent import utils
 from volttron.platform.messaging import headers as headers_mod
 from topics import *
 
-from lpdm_event import LpdmPowerEvent, LpdmTtieEvent, LpdmCapacityEvent
+from lpdm_event import LpdmPowerEvent, LpdmTtieEvent, LpdmCapacityEvent, LpdmPriceEvent
 
 class LPDM_BaseAgent(Agent):
     """
@@ -18,14 +18,28 @@ class LPDM_BaseAgent(Agent):
     like handling messages or setting the interface for subclasses to handle messages where necessary
     and the basic headers of the message.  Also handles messages for changing device settings.        
     """
-    def __init__(self, config_path, **kwargs):
+    def __init__(self, config, **kwargs):
         """
         :param device_id:  string, the id of the device in the system.  Should be unique within the run.
         """
         super(LPDM_BaseAgent, self).__init__(**kwargs)
-        self.time = None            
-        self.agent_id = kwargs["device_id"]
-        self.last_message_id = None            
+        self.time = None
+        self.config = config
+        self.agent_id = config["device_id"]
+        self.last_message_id = None
+        
+    def LPDM_event_to_function_map(self):
+        res = {}
+        res[LpdmPowerEvent] = self.config["broadcast_new_power"]
+        res[LpdmTtieEvent] = self.config["broadcast_new_ttie"]
+        res[LpdmCapacityEvent] = self.config["broadcast_new_capacity"]
+        res[LpdmPriceEvent] = self.config["broadcast_new_price"]
+        return res
+        
+    def LPDM_broadcast(self, lpdm_event_object):
+        print "Got LPDM event to broadcast: {e}".format(e=lpdm_event_object)
+        f = self.LPDM_event_to_function_map()[type(lpdm_event_object)]
+        f(lpdm_event_object.source_device_id, lpdm_event_object.target_device_id, lpdm_event_object.time, lpdm_event_object.value)
              
     @Core.receiver('onstart')
     def on_message_bus_start(self, sender, **kwargs):
@@ -107,7 +121,7 @@ class LPDM_BaseAgent(Agent):
         topic = POWER_USE_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
         self.vip.pubsub.publish("pubsub", topic, headers, message)
     
-    def send_new_time_until_next_event(self, source_device_id, time_until_next_event, target_device_id = "all"):
+    def send_new_time_until_next_event(self, source_device_id, target_device_id, time_until_next_event, value):
         """
         Posts a new time until next event message.
         """

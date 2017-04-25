@@ -11,14 +11,18 @@ from device.simulated.eud import Eud
 class SimulationEventsAgent(SimulationAgent):
     
     def __init__(self, config_path, **kwargs):
-        super(SimulationEventsAgent, self).__init__(config_path, **kwargs)
-        
+        raise RuntimeError("This class probably does not work with latest changes.  It is not used by the CBERD experiment (currently) so is being left broken due to time constraints.")
+        config = utils.load_config(config_path)
         try:
-            config = kwargs
             config["device_name"] = config["device_id"]
             self.events = config["events"]        
         except:
-            config = {}           
+            raise RuntimeError("Invalid configuration")
+        
+        # This needs to come after adding the callbacks to config due to LPDM now
+        # only having one callback instead of several.  The actual mappings of 
+        # what gets returned by the LPDM code will be handled in the LPDM_BaseAgent
+        super(SimulationEventsAgent, self).__init__(config, **kwargs)           
                 
                 
     @Core.receiver("onsetup")

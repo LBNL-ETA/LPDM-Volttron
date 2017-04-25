@@ -3,6 +3,7 @@
 
 
 import sys
+import logging
 from volttron.platform.agent import utils
 from volttron.platform.vip.agent import Core
 from volttron.platform.messaging import headers as headers_mod
@@ -12,6 +13,10 @@ from device.simulated.diesel_generator import DieselGenerator
 from device.simulated.pv import Pv
 from device.simulated.utility_meter import UtilityMeter
 
+utils.setup_logging()
+_log = logging.getLogger(__name__)
+__version__ = '0.1'
+
 from lpdm_event import LpdmConnectDeviceEvent, LpdmPriceEvent, LpdmInitEvent
 import cPickle
 
@@ -20,9 +25,8 @@ def power_source_factory(type_id):
     device_type_to_class_map["diesel_generator"] = DieselGenerator
     device_type_to_class_map["pw"] = Pv
     device_type_to_class_map["utility_meter"] = UtilityMeter
-    
-    #if it isn't a specialized type just use the basic EUD
-    return device_type_to_class_map.get(type_id, DieselGenerator)
+        
+    return device_type_to_class_map.get(type_id, None)
 
 class PowerSourceAgent(SimulationAgent):
     """
@@ -32,21 +36,28 @@ class PowerSourceAgent(SimulationAgent):
         """
         Initializes the agent and registers some of its functions with the 
         device's config file.
-        """
-        super(PowerSourceAgent, self).__init__(config_path, **kwargs)
+        """        
+        
+        
+        config = utils.load_config(config_path)
+        _log.debug(config)
         
         try:
-            config = kwargs
             config["device_name"] = config["device_id"]
             self.grid_controller_id = config["grid_controller_id"]
         except:
-            config = {}
+            raise RuntimeError("Invalid configuration")
                  
         config["broadcast_new_power"] = self.send_new_power
         config["broadcast_new_price"] = self.send_new_price
         config["broadcast_new_ttie"] = self.send_new_time_until_next_event
-        config["broadcast_new_capacity"] = self.send_new_capacity   
-        self.config = config
+        config["broadcast_new_capacity"] = self.send_new_capacity
+        config["broadcast"] = self.LPDM_broadcast  
+        
+        # This needs to come after adding the callbacks to config due to LPDM now
+        # only having one callback instead of several.  The actual mappings of 
+        # what gets returned by the LPDM code will be handled in the LPDM_BaseAgent
+        super(PowerSourceAgent, self).__init__(config, **kwargs)
         
     def send_new_price(self, source_device_id, target_device_id, timestamp, price):
         """
@@ -55,10 +66,17 @@ class PowerSourceAgent(SimulationAgent):
         headers = self.default_headers(target_device_id)        
         headers["timestamp"] = timestamp + self.message_processing_time
         message = LpdmPriceEvent(source_device_id, target_device_id, timestamp, price)
-        message = cPickle.dumps(message)
         #message = {"price" : price}
         topic = ENERGY_PRICE_FROM_ENERGY_PRODUCER_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
+        
+        with open("/tmp/power_source_send_new_price", "a") as f:
+            f.write("Topic: {t}\n".format(t = topic))
+            f.write(str(message) + "\n")
+
+        
+        message = cPickle.dumps(message)
         self.vip.pubsub.publish("pubsub", topic, headers, message)
+        self.vip.pubsub.publish("pubsub", "zone/pricepoint", headers, message)
         try:
             fuel_topic = FUEL_LEVEL_TOPIC.format(id = self.agent_id)
             
@@ -84,6 +102,8 @@ class PowerSourceAgent(SimulationAgent):
         self.price_subscription_id = self.vip.pubsub.subscribe("pubsub", self.subscribed_price_topic, self.on_price_update)        
         self.device_type = self.config.get("device_type", None)
         self.device_class = power_source_factory(self.device_type)
+        with open("/tmp/power_source_device_class", "a") as f:
+            f.write(str(self.device_class) + "\n")
         self.power_source = self.device_class(self.config)
         self.send_subscriptions()
         self.broadcast_connection()
@@ -97,9 +117,19 @@ class PowerSourceAgent(SimulationAgent):
         to add it to the list of connected power producing devices.
         """
         headers = self.default_headers(None)
-        message = LpdmConnectDeviceEvent(self.power_source._device_id, self.device_type, self.device_class)
+        with open("/tmp/power_source_pre_broadcast_connection_cfg", "a") as f:
+            f.write(str(self.config) + "\n\n")
+        message = LpdmConnectDeviceEvent(self.config["device_id"], self.config["device_type"], self.device_class)
+        topic = ADD_POWER_SOURCE_TOPIC.format(id = self.grid_controller_id)
+        with open("/tmp/power_source_broadcast_connection", "a") as f:
+            f.write("Topic: {t}\n".format(t=topic))
+            f.write(str(message) + "\n")
+            f.write(str(message.event_type) + "\n")
+            f.write(str(message.device_id) + "\n")
+            f.write(str(message.device_type) + "\n")
+            f.write(str(message.DeviceClass) + "\n\n")
         message = cPickle.dumps(message)
-        self.vip.pubsub.publish("pubsub", ADD_POWER_SOURCE_TOPIC.format(id = self.grid_controller_id), headers, message)
+        self.vip.pubsub.publish("pubsub", topic, headers, message)
     
     def get_device(self):
         """
@@ -124,6 +154,8 @@ class PowerSourceAgent(SimulationAgent):
         calls onPriceChange on the underlying device, and sends a finished processing message.
         """  
         message = cPickle.loads(message)
+        with open("/tmp/power_source_on_power_update", "a") as f:
+            f.write(str(message) + "\n")
         device_id = headers.get(headers_mod.FROM, None)
         message_id = headers.get("message_id", None)
         self.last_message_id = message_id
@@ -145,6 +177,8 @@ class PowerSourceAgent(SimulationAgent):
         message_id = headers.get("message_id", None)
         self.last_message_id = message_id           
         evt = cPickle.loads(message)
+        with open("/tmp/power_source_on_price_update", "a") as f:
+            f.write(str(message) + "\n")
         self.power_source.process_supervisor_event(evt)     
         self.send_finish_processing_message()
         
