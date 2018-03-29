@@ -23,7 +23,6 @@ class SimulationAgent(LPDM_BaseAgent):
     @Core.receiver('onstart')
     def on_message_bus_start(self, sender, **kwargs):
         topic = SYSTEM_TIME_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
-        #self.time_topic_registration_id = self.vip.pubsub.subscribe("pubsub", topic, self.on_time_update)
         self.global_time_topic_registration_id = self.vip.pubsub.subscribe("pubsub", SYSTEM_TIME_TOPIC, self.on_time_update)
 
     def on_time_update(self, peer, sender, bus, topic, headers, message):
@@ -31,9 +30,7 @@ class SimulationAgent(LPDM_BaseAgent):
         timestamp = message.value
         self.last_message_id = headers.get("message_id", None)
         self.time = float(timestamp)
-        print "Time:\t{s}".format(s = self.time)
         device = self.get_device()
-        #device.on_time_change(int(self.time))
         device.process_supervisor_event(message)       
         self.send_finish_processing_message()
         

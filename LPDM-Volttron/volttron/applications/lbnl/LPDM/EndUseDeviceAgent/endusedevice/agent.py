@@ -17,45 +17,46 @@ from device.simulated.fixed_consumption import FixedConsumption
 
 from lpdm_event import LpdmConnectDeviceEvent, LpdmInitEvent
 
+
 def eud_factory(type_id):
     device_type_to_class_map = {}
     device_type_to_class_map["fixed_consumption"] = FixedConsumption
     device_type_to_class_map["air_conditioner"] = AirConditioner
-    
-    #if it isn't a specialized type just use the basic EUD
+
+    # if it isn't a specialized type just use the basic EUD
     return device_type_to_class_map.get(type_id, Eud)
-        
+
 
 class EndUseDeviceAgent(SimulationAgent):
     """
     A base class for all power-consuming objects in the system.  Registers some of its functions with the 
     underlying device's config file.
     """
+
     def __init__(self, config_path, **kwargs):
-        
+
         config = utils.load_config(config_path)
-        
+
         try:
             config["device_name"] = config["device_id"]
             self.grid_controller_id = config["grid_controller_id"]
         except:
-            raise RuntimeError("Invalid configuration")     
-              
+            raise RuntimeError("Invalid configuration")
+
         config["broadcast_new_power"] = self.send_new_power
         config["broadcast_new_price"] = self.send_new_price
         config["broadcast_new_ttie"] = self.send_new_time_until_next_event
         config["broadcast_new_capacity"] = self.send_new_capacity
         config["broadcast"] = self.LPDM_broadcast
-        
+
         # This needs to come after adding the callbacks to config due to LPDM now
         # only having one callback instead of several.  The actual mappings of 
         # what gets returned by the LPDM code will be handled in the LPDM_BaseAgent
         super(EndUseDeviceAgent, self).__init__(config, **kwargs)
-           
-        
+
     def send_new_price(self, source_device_id, target_device_id, timestamp, price):
         raise NotImplementedError("End use devices should not be sending price information.")
-        
+
     @Core.receiver('onstart')
     def on_message_bus_start(self, sender, **kwargs):
         """
@@ -64,56 +65,52 @@ class EndUseDeviceAgent(SimulationAgent):
         and sends a message indicating it has successfully initialized.
         """
         super(EndUseDeviceAgent, self).on_message_bus_start(sender, **kwargs)
-        self.energy_price_subscribed_topic = ENERGY_PRICE_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
-        self.energy_subscription_id = self.vip.pubsub.subscribe("pubsub", self.energy_price_subscribed_topic, self.on_price_update)
+        self.energy_price_subscribed_topic = ENERGY_PRICE_TOPIC_SPECIFIC_AGENT.format(id=self.agent_id)
+        self.energy_subscription_id = self.vip.pubsub.subscribe("pubsub", self.energy_price_subscribed_topic,
+                                                                self.on_price_update)
         self.device_type = self.config.get("device_type", None)
         self.device_class = eud_factory(self.device_type)
-        self.end_use_device = self.device_class(self.config)        
-        #self.end_use_device._price = 0.343784378438
+        self.end_use_device = self.device_class(self.config)
         self.broadcast_connection()
         self.send_subscriptions()
         evt = LpdmInitEvent()
         self.get_device().process_supervisor_event(evt)
         self.send_finished_initialization()
-        
+
     def get_device(self):
         """
         :return end_use_device: The underlying device this code wraps. 
         """
         return self.end_use_device
-        
+
     def broadcast_connection(self):
         """
         Posts a message to the grid_controller this device is attached to telling the grid_controller
         to add it to the list of connected power consuming devices.
         """
         headers = self.default_headers(None)
-        topic = ADD_END_USE_DEVICE_TOPIC.format(id = self.grid_controller_id)
+        topic = ADD_END_USE_DEVICE_TOPIC.format(id=self.grid_controller_id)
         message = LpdmConnectDeviceEvent(self.end_use_device._device_id, self.device_type, self.device_class)
-        with open("/tmp/EUD_broadcast_connection", "a") as f:
-            f.write(str(message) + "\n")
         message = cPickle.dumps(message)
         self.vip.pubsub.publish("pubsub", topic, headers, message)
-        
+
     def send_subscriptions(self):
         """
         Sends a message saying which energy_price_topic it has subscribed to.
         Needed for simulation but may also aid in diagnostics for real systems.
         """
-        subscriptions = [self.energy_price_subscribed_topic]        
-        message = {"subscriptions" : subscriptions}
+        subscriptions = [self.energy_price_subscribed_topic]
+        message = {"subscriptions": subscriptions}
         headers = {}
         headers[headers_mod.FROM] = self.agent_id
         self.vip.pubsub.publish("pubsub", SUBSCRIPTION_TOPIC, headers, message)
-        
+
     def on_price_update(self, peer, sender, bus, topic, headers, message):
         """
         Handles reacting to a new energy price message.  Updates the local time,
         calls onPriceChange on the underlying device, and sends a finished processing message.
         """
         message = cPickle.loads(message)
-        with open("/tmp/EUD_on_price_update", "a") as f:
-            f.write(str(message) + "\n")
         device_id = headers.get(headers_mod.FROM, None)
         message_id = headers.get("message_id", None)
         self.last_message_id = message_id

@@ -7,14 +7,6 @@ from volttron.platform.agent import utils
 from volttron.applications.lbnl.LPDM.BaseAgent.base.topics import *
 from volttron.applications.lbnl.LPDM.BaseAgent.base.agent import BaseAgent
 
-def log_entry_and_exit(f):
-    def _f(*args):
-        print "Entering %s" % f.__name__
-        f(*args)
-        print "Exited %s" % f.__name__
-    return _f
-
-
 
 class RealAgent(BaseAgent):
     def __init__(self, **kwargs):
@@ -25,8 +17,6 @@ class RealAgent(BaseAgent):
         from time import time
         return time()
     
-    
-            
 
 def main(argv=sys.argv):
     '''Main method called by the eggsecutable.'''

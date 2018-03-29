@@ -12,12 +12,14 @@ from topics import *
 
 from lpdm_event import LpdmPowerEvent, LpdmTtieEvent, LpdmCapacityEvent, LpdmPriceEvent
 
+
 class LPDM_BaseAgent(Agent):
     """
     Base class for LPDM agents.  Responsible for most of the general things need to run in volttron
     like handling messages or setting the interface for subclasses to handle messages where necessary
     and the basic headers of the message.  Also handles messages for changing device settings.        
     """
+
     def __init__(self, config, **kwargs):
         """
         :param device_id:  string, the id of the device in the system.  Should be unique within the run.
@@ -27,20 +29,19 @@ class LPDM_BaseAgent(Agent):
         self.config = config
         self.agent_id = config["device_id"]
         self.last_message_id = None
-        
+
     def LPDM_event_to_function_map(self):
-        res = {}
-        res[LpdmPowerEvent] = self.config["broadcast_new_power"]
-        res[LpdmTtieEvent] = self.config["broadcast_new_ttie"]
-        res[LpdmCapacityEvent] = self.config["broadcast_new_capacity"]
-        res[LpdmPriceEvent] = self.config["broadcast_new_price"]
+        res = {LpdmPowerEvent: self.config["broadcast_new_power"], LpdmTtieEvent: self.config["broadcast_new_ttie"],
+               LpdmCapacityEvent: self.config["broadcast_new_capacity"],
+               LpdmPriceEvent: self.config["broadcast_new_price"]}
         return res
-        
+
     def LPDM_broadcast(self, lpdm_event_object):
         print "Got LPDM event to broadcast: {e}".format(e=lpdm_event_object)
         f = self.LPDM_event_to_function_map()[type(lpdm_event_object)]
-        f(lpdm_event_object.source_device_id, lpdm_event_object.target_device_id, lpdm_event_object.time, lpdm_event_object.value)
-             
+        f(lpdm_event_object.source_device_id, lpdm_event_object.target_device_id, lpdm_event_object.time,
+          lpdm_event_object.value)
+
     @Core.receiver('onstart')
     def on_message_bus_start(self, sender, **kwargs):
         """
@@ -48,8 +49,9 @@ class LPDM_BaseAgent(Agent):
         E.G. if the subclass of this is Generator and there is a message to change the refuel date it should target the
         on_device_parameter_change_message function
         """
-        self.vip.pubsub.subscribe("pubsub", CHANGE_DEVICE_PARAMETER_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id), self.on_device_parameter_change_message)
-            
+        self.vip.pubsub.subscribe("pubsub", CHANGE_DEVICE_PARAMETER_TOPIC_SPECIFIC_AGENT.format(id=self.agent_id),
+                                  self.on_device_parameter_change_message)
+
     def default_headers(self, target_device):
         """
         The default headers in a LPDM message.  
@@ -64,23 +66,22 @@ class LPDM_BaseAgent(Agent):
             message_id:  A uuid to identify a message in a run.
         """
         from uuid import uuid4
-        headers = {}
-        headers[headers_mod.FROM] = self.agent_id
+        headers = {headers_mod.FROM: self.agent_id}
         if target_device:
             headers[headers_mod.TO] = target_device
-        headers["timestamp"] = self.time        
+        headers["timestamp"] = self.time
         headers["responding_to"] = self.last_message_id
         headers["message_id"] = str(uuid4())
-        
+
         return headers
-        
+
     def get_time(self):
         """
         The base class does not handle time because it does not know if it is in reality or a simulation.
         Leaving time to the derived classes allows for a mix of real and simulated devices.
         """
         raise NotImplementedError("Implement in derived class.")
-  
+
     def send_new_price(self, source_device_id, target_device_id, timestamp, price):
         """
         The base class does not handle sending prices because different devices have different behavior for sending
@@ -88,7 +89,7 @@ class LPDM_BaseAgent(Agent):
         end use devices to not send prices.
         """
         raise NotImplementedError("send_new_price should be implemented in appropriate subclasses")
-        
+
     @PubSub.subscribe("pubsub", TERMINATE_TOPIC)
     def on_terminate(self, peer, sender, bus, topic, headers, message):
         """
@@ -101,7 +102,7 @@ class LPDM_BaseAgent(Agent):
         timestamp = message["timestamp"]
         self.last_message_id = headers.get("message_id", None)
         timestamp = float(timestamp)
-        
+
         device = self.get_device()
         device.onTimeChange(timestamp)
         device.finish()
@@ -113,66 +114,66 @@ class LPDM_BaseAgent(Agent):
         """
         Posts a new power message.
         """
-        headers = self.default_headers(target_device_id)             
+        headers = self.default_headers(target_device_id)
         headers["timestamp"] = timestamp + getattr(self, "message_processing_time", 0)
-        #message = {"power" : power}
+        # message = {"power" : power}
         message = LpdmPowerEvent(source_device_id, target_device_id, timestamp, power)
         message = cPickle.dumps(message)
-        topic = POWER_USE_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
+        topic = POWER_USE_TOPIC_SPECIFIC_AGENT.format(id=self.agent_id)
         self.vip.pubsub.publish("pubsub", topic, headers, message)
-    
+
     def send_new_time_until_next_event(self, source_device_id, target_device_id, time_until_next_event, value):
         """
         Posts a new time until next event message.
         """
-        headers = self.default_headers(target_device_id)      
-        #message = {"time_until_next_event" : time_until_next_event}
-        
+        headers = self.default_headers(target_device_id)
+        # message = {"time_until_next_event" : time_until_next_event}
+
         message = LpdmTtieEvent(target_device_id, time_until_next_event)
         message = cPickle.dumps(message)
-        
-        topic = TIME_UNTIL_NEXT_EVENT_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
-    
+
+        topic = TIME_UNTIL_NEXT_EVENT_TOPIC_SPECIFIC_AGENT.format(id=self.agent_id)
+
         self.vip.pubsub.publish("pubsub", topic, headers, message)
-        
+
     def send_new_capacity(self, source_device_id, target_device_id, timestamp, capacity):
         """
         Posts a new capacity message.
         """
-        headers = self.default_headers(target_device_id)             
+        headers = self.default_headers(target_device_id)
         headers["timestamp"] = timestamp + getattr(self, "message_processing_time", 0)
-        #message = {"capacity" : capacity}
+        # message = {"capacity" : capacity}
         message = LpdmCapacityEvent(source_device_id, target_device_id, timestamp, capacity)
         message = cPickle.dumps(message)
-        topic = POWER_USE_TOPIC_SPECIFIC_AGENT.format(id = self.agent_id)
+        topic = POWER_USE_TOPIC_SPECIFIC_AGENT.format(id=self.agent_id)
         self.vip.pubsub.publish("pubsub", topic, headers, message)
-        
+
     def send_finished_initialization(self):
         """
         Posts a message indicating the agent has successfully initialized
         """
-        headers = self.default_headers(None)            
-        message = {"initialization_finished" : True}
-        topic = FINISHED_INITIALIZING_TOPIC.format(id = self.agent_id)
+        headers = self.default_headers(None)
+        message = {"initialization_finished": True}
+        topic = FINISHED_INITIALIZING_TOPIC.format(id=self.agent_id)
         self.vip.pubsub.publish("pubsub", topic, headers, message)
-        
+
     def send_finish_processing_message(self):
         """
         Posts a message indicating that the device has finished responding to another message
         Needed for simulations.  Not strictly necessary for realtime but may be useful in
         diagnosing system problems and may afford more control in timing events.
-        """        
-        topic = FINISHED_PROCESSING_MESSSAGE_SPECIFIC_AGENT.format(id = self.agent_id)
+        """
+        topic = FINISHED_PROCESSING_MESSSAGE_SPECIFIC_AGENT.format(id=self.agent_id)
         headers = self.default_headers(None)
-        message = {"finished" : True}
+        message = {"finished": True}
         self.vip.pubsub.publish("pubsub", topic, headers, message)
-        
+
     def get_device(self):
         """
         Subclasses should return the actual device the VOLTTRON agent is wrapping.
         """
         raise NotImplementedError("Implement in derived class.")
-    
+
     def on_device_parameter_change_message(self, topic, headers, message, matched):
         """
         Responds to a message telling a device to change a paramater.  E.G. a message telling the
@@ -185,9 +186,10 @@ class LPDM_BaseAgent(Agent):
         param = message["parameter"]
         new_val = message["value"]
         device = self.get_device()
-        device.__dict__["_" + param] = new_val        
+        device.__dict__["_" + param] = new_val
         device.refresh()
         self.send_finish_processing_message()
+
 
 def main(argv=sys.argv):
     '''Main method called by the eggsecutable.'''

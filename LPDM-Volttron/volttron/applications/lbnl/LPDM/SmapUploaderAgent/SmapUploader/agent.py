@@ -23,10 +23,10 @@ BASE_TOPIC_TO_LISTEN_TO = "LPDM"
 # This is the information needed to post to smap.  The source_name might be able
 # to be derived somehow and the API key and server root could go in a config
 # But this seems easier to show for an example.
-SMAP_ROOT = "http://chomp.lbl.gov/"
-API_KEY = "u606HlEFHTeVLfpBQZkNF232wChljnLHCKBY"
-SOURCE_NAME = "LPDM CBERD Flexlab Data"
-TIME_ZONE = "US/Pacific"
+SMAP_ROOT = "REMOVED"
+API_KEY = "REMOVED"
+SOURCE_NAME = "REMOVED"
+TIME_ZONE = "REMOVED"
 
 class SmapUploaderAgent(Agent):
     """
